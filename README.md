@@ -8,9 +8,12 @@
 Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Router + Orchestrator
 
 ┌──────────────────────────────┐
-│ Interface Layer              │ ← CLI (当前) / API (规划中)├──────────────────────────────┤
-│ Orchestrator Layer           │ ← 多Agent调度 (开发中)├──────────────────────────────┤
-│ Agent Layer                  │ ← 单Agent闭环 ✅ (当前版本)├──────────────────────────────┤
+│ Interface Layer              │ ← CLI (当前) / API (规划中)
+├──────────────────────────────┤
+│ Orchestrator Layer           │ ← 多Agent调度 (开发中)
+├──────────────────────────────┤
+│ Agent Layer                  │ ← 单Agent闭环 ✅ (当前版本)
+├──────────────────────────────┤
 │ Policy / Planning Layer      │ ← 决策、路径规划 ✅
 ├──────────────────────────────┤
 │ Memory │ Knowledge │ Skills  │ ← 认知系统 

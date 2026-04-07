@@ -1,5 +1,6 @@
 # Python 缓存
 __pycache__/
+*.py[cod]
 *.pyc
 *.pyo
 
@@ -12,6 +13,7 @@ temp_data/
 # 环境变量（不要上传密钥）
 .env
 *.key
+*.swp
 
 # IDE 设置
 .vscode/
@@ -19,6 +21,7 @@ temp_data/
 
 # 虚拟环境（不要上传）
 venv/
+.venv/
 env/
 
 # 操作系统生成文件
@@ -28,3 +31,10 @@ Thumbs.db
 # 如果已有本地输出文件，也可以直接忽略
 output/
 data/raw/.
+# 忽略 data 目录下的所有文件,保留占位符文件
+data/*
+!data/.gitkeep
+
+# 忽略 runtime 目录下的所有日志/缓存
+runtime/*
+!runtime/.gitkeep

@@ -1,0 +1,14 @@
+# .env
+# 配置api key
+# LLM_PROVIDER=gml
+# GLM_API_KEY=your_real_api_key_here
+
+
+# 硅基流动示例
+# 切换提供商
+LLM_PROVIDER=siliconflow
+
+# 填入硅基流动的 API Key
+SILICONFLOW_API_KEY=在这里填入你的key
+
+MODEL_NAME=deepseek-ai/DeepSeek-V3

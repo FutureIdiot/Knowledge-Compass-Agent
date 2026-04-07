@@ -1,0 +1,67 @@
+# llm/siliconflow.py
+import os
+from openai import OpenAI
+from llm.base import BaseLLM
+
+class SiliconFlowAdapter(BaseLLM):
+    def __init__(self):
+        api_key = os.getenv("SILICONFLOW_API_KEY")
+        if not api_key:
+            raise ValueError("请在环境变量中设置 SILICONFLOW_API_KEY")
+            
+        self.client = OpenAI(
+            api_key=api_key, 
+            base_url="https://api.siliconflow.cn/v1"  # 硅基流动的专属接口地址
+        )
+        # 这里选择 DeepSeek-V3，性价比极高，工具调用能力也很强
+        self.model = "deepseek-ai/DeepSeek-V3"
+
+    def chat(self, messages, tools=None):
+        kwargs = {"model": self.model, "messages": messages}
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+            
+        response = self.client.chat.completions.create(**kwargs)
+        msg = response.choices[0].message
+        
+        result = {"content": msg.content}
+        if msg.tool_calls:
+            result["tool_calls"] = [
+                {"name": tc.function.name, "arguments": tc.function.arguments} 
+                for tc in msg.tool_calls
+            ]
+        return result
+        pass
+
+    def chat_stream(self, messages, tools=None):
+        kwargs = {"model": self.model, "messages": messages, "stream": True}
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+            
+        stream = self.client.chat.completions.create(**kwargs)
+        
+        tool_calls_buffer = {} # 用来攒工具调用的碎片
+        
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            
+            # 1. 如果是普通文本，直接吐出去（打字机效果）
+            if delta.content:
+                yield {"type": "text", "content": delta.content}
+                
+            # 2. 如果是工具调用，不能直接吐，要偷偷攒起来
+            if delta.tool_calls:
+                for tc_chunk in delta.tool_calls:
+                    idx = tc_chunk.index
+                    if idx not in tool_calls_buffer:
+                        tool_calls_buffer[idx] = {"name": "", "arguments": ""}
+                    if tc_chunk.function.name:
+                        tool_calls_buffer[idx]["name"] += tc_chunk.function.name
+                    if tc_chunk.function.arguments:
+                        tool_calls_buffer[idx]["arguments"] += tc_chunk.function.arguments
+                        
+        # 3. 流结束后，如果攒了工具调用，一次性丢给 Agent 处理
+        if tool_calls_buffer:
+            yield {"type": "tool_calls", "tool_calls": list(tool_calls_buffer.values())}

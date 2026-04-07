@@ -1,0 +1,30 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 日志和测试输出
+*.log
+*.tmp
+test_outputs/
+temp_data/
+
+# 环境变量（不要上传密钥）
+.env
+*.key
+
+# IDE 设置
+.vscode/
+.idea/
+
+# 虚拟环境（不要上传）
+venv/
+env/
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+
+# 如果已有本地输出文件，也可以直接忽略
+output/
+data/raw/.

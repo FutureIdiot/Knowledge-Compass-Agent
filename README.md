@@ -8,6 +8,7 @@
 Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Router + Orchestrator
 
 ┌──────────────────────────────┐
+
 │ Interface Layer              │ ← CLI (当前) / API (规划中)
 ├──────────────────────────────┤
 │ Orchestrator Layer           │ ← 多Agent调度 (开发中)
@@ -54,3 +55,4 @@ Agent不直接操作文件，必须通过 Tools
 如果你路过了这个仓库，发现了一段极其愚蠢的代码、一个反模式的设计，或者觉得某个架构完全不合规范——请千万不要客气，直接提 Issue 或 PR！你是我的远程导师，我在这里等你批评指正。
 
 （↑ 这些还是ai写的。感谢CLAUDE,GLM,DEEPSEEK,CHATGPT,MINIMAX,GEMINI。是的我就这样问完你的问你的，一个也不放过。）
+（根目录里有个初始prompt.txt，这个是没有用的，是我一开始想要做agent的雏形，直接发给网页上agent版的ai就能用。实际上还有个更早的雏形是openclaw的一个skill，但是都非常简陋，很难达到预期的效果，我会继续督促ai努力干活自我管理的。）

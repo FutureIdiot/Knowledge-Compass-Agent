@@ -1,27 +1,46 @@
-import json
-from core.base_tool import BaseTool
+from enum import Enum
+from typing import Any
 
-class WorklogTool(BaseTool):
-    name = "save_worklog"
-    description = "将用户的最新状态、画像、权重等信息保存到 worklog.md 中。输入必须是 JSON 格式的 AgentState。"
+from pydantic import BaseModel, Field
 
-    def execute(self, state_json: str) -> str:
-        try:
-            # 这里可以做格式化为 markdown 的逻辑
-            # 简化版：直接存为 json 以便下次读取
-            with open("data/worklog.json", "w", encoding="utf-8") as f:
-                f.write(state_json)
-            return "状态已成功保存到 worklog。"
-        except Exception as e:
-            return f"保存失败: {str(e)}"
 
-class ReadWorklogTool(BaseTool):
-    name = "read_worklog"
-    description = "读取用户当前的学习状态和历史记录。每次对话开始前必须调用。"
+class AgentRole(str, Enum):
+    ROUTER = "router"
+    MEMORY_MANAGER = "memory_manager"
+    PROFILE_MANAGER = "profile_manager"
+    KNOWLEDGE_MANAGER = "knowledge_manager"
+    WEB_SEARCHER = "web_searcher"
+    INTERACTION = "interaction"
 
-    def execute(self, _: str = "") -> str:
-        try:
-            with open("data/worklog.json", "r", encoding="utf-8") as f:
-                return f.read()
-        except FileNotFoundError:
-            return "未找到历史记录，用户是第一次使用。"
+
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class TaskSpec(BaseModel):
+    id: str
+    owner: AgentRole
+    goal: str
+    instructions: str = ""
+    payload: dict[str, Any] = Field(default_factory=dict)
+    depends_on: list[str] = Field(default_factory=list)
+    status: TaskStatus = TaskStatus.PENDING
+
+
+class TaskResult(BaseModel):
+    task_id: str
+    owner: AgentRole
+    status: TaskStatus
+    summary: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExecutionPlan(BaseModel):
+    mode: str = "direct"
+    rationale: str = ""
+    tasks: list[TaskSpec] = Field(default_factory=list)
+

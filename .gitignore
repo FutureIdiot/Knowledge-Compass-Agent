@@ -9,6 +9,9 @@ __pycache__/
 *.tmp
 test_outputs/
 temp_data/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # 环境变量（不要上传密钥）
 .env
@@ -18,6 +21,8 @@ temp_data/
 # IDE 设置
 .vscode/
 .idea/
+.mypy_cache/
+.ruff_cache/
 
 # 虚拟环境（不要上传）
 venv/
@@ -38,3 +43,6 @@ data/*
 # 忽略 runtime 目录下的所有日志/缓存
 runtime/*
 !runtime/.gitkeep
+
+# 运行期生成的用户画像
+memory/profile.md

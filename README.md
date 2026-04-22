@@ -1,71 +1,142 @@
-# Knowledge_Compass_Agent (学习路径导航系统)
-个人知识罗盘，本地学习路径 Agent 系统。
+# Knowledge Compass Agent
 
-## 🎯 核心理念
-通过分层架构（状态机、工具拦截、冷热记忆分离）来控制 LLM 的行为，确保导航过程的客观与可控。
+Local-first learning-path navigation with an evolving multi-agent architecture.
 
-## 🏗️ 总体架构
-Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Router + Orchestrator
+## Overview
 
-┌──────────────────────────────┐
+Knowledge Compass Agent is an experimental project that explores how a learning assistant can be turned into a more structured, controllable agent system.
 
-│ Interface Layer              │ ← CLI (当前) / API (规划中)
+The goal is to help a user:
 
-├──────────────────────────────┤
+- understand their current learning state
+- decide the next concrete step
+- preserve useful long-term context such as progress, preferences, and plans
+- gradually evolve from a single-agent workflow into a multi-agent architecture
 
-│ Orchestrator Layer           │ ← 多Agent调度 (开发中)
+The project emphasizes controllability over pure prompt magic by separating responsibilities across planning, memory, knowledge, tools, and model routing.
 
-├──────────────────────────────┤
+## Core Idea
 
-│ Agent Layer                  │ ← 单Agent闭环 ✅ (当前版本)
+The system is designed around a layered architecture:
 
-├──────────────────────────────┤
+`Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Router + Orchestrator`
 
-│ Policy / Planning Layer      │ ← 决策、路径规划 ✅
+Current and planned layers:
 
-├──────────────────────────────┤
+- Interface Layer: CLI today, API later
+- Orchestrator Layer: task routing and multi-agent coordination
+- Agent Layer: agent loop and role execution
+- Policy / Planning Layer: decision rules and next-step planning
+- Memory / Knowledge / Skills Layer: user state, references, reusable capabilities
+- Tool Execution Layer: controlled file and tool access
+- LLM Adapter Layer: interchangeable model providers
 
-│ Memory │ Knowledge │ Skills  │ ← 认知系统 
+## Current Status
 
-├──────────────────────────────┤
+Status: early MVP, actively evolving.
 
-│ Tool Execution Layer         │ ← 文件读写工具 ✅
+Implemented:
 
-├──────────────────────────────┤
+- single-session CLI interaction
+- LLM adapter abstraction
+- basic tool-based state persistence
+- early multi-agent orchestration skeleton
+- role-oriented task routing
 
-│ LLM Adapter Layer            │ ← 多模型抽象 ✅
+In progress or planned:
 
-└──────────────────────────────┘
+- stronger memory management
+- dedicated user profile management
+- local knowledge retrieval
+- web search integration
+- better multi-agent execution and coordination
+- guided initialization and configuration flow
 
-## 🚀 当前状态 (V0.1 - MVP)
-- [x] 单 Agent 闭环跑通
-- [x] LLM 多模型适配层 (基于环境变量无缝切换)
-- [x] 工具调用拦截机制 (防止 LLM 幻觉写入)
-- [x] 热记忆层 (基于 Markdown 的 worklog 读写)
-- [] 冷知识层
-- [] 技能沉淀系统
-- [] 多 Agent 编排调度
+## Why This Project
 
-## ⚡ 快速开始
-1. 克隆仓库
-2. 安装依赖：pip install -r requirements.txt
-3. 配置 .env 文件（参考 .env.example）
-4. 运行：python main.py
+Many learning assistants are good at conversation but weak at continuity and structure. This project explores a different direction:
 
-## 📝 设计原则
-Prompt外部化
-Agent不直接操作文件，必须通过 Tools
-默认不查知识，由 Gate 拦截
+- separate routing, memory, profile, knowledge, and interaction concerns
+- make behavior easier to inspect and evolve
+- keep the system flexible enough to mix different models for different roles
+- move important control logic from prompt-only behavior into code
 
-## 🙋‍♂️声明
- 
-坦白说，在写这个项目之前，我完全不懂什么是 Pydantic、Function Calling，甚至连 Python 的面向对象都不太明白。
+## Project Structure
 
-这个项目里的每一行代码、每一个架构设计，都是我通过和 AI 不断对话，从“写一段神奇的 Prompt”一步步被“逼”成了现在的工程化架构。那些空着的文件夹，是我目前还没学会怎么写，但 AI 告诉我以后应该长在那里的“预留位”。
+```text
+.
+├── core/          # agent runtime, router, orchestration
+├── knowledge/     # local knowledge and retrieval-related modules
+├── llm/           # model adapters and selection logic
+├── memory/        # schemas and long-term state artifacts
+├── prompts/       # system and planning prompts
+├── tools/         # tool definitions
+├── data/          # runtime data such as worklogs
+├── runtime/       # runtime cache / logs
+└── main.py        # CLI entrypoint
+```
 
-我把它开源出来，不是为了炫耀技术（因为我真的不懂），而是想记录一个零基础的人，如何依靠 AI 搭建复杂系统的真实过程。
+## Quick Start
 
-如果你路过了这个仓库，发现了一段极其愚蠢的代码、一个反模式的设计，或者觉得某个架构完全不合规范——请千万不要客气，直接提 Issue 或 PR！你是我的远程导师，我在这里等你批评指正。
+1. Clone the repository.
+2. Install dependencies:
 
-（↑ 这些还是ai写的。感谢CLAUDE,GLM,DEEPSEEK,CHATGPT,MINIMAX,GEMINI。是的我就这样问完你的问你的，一个也不放过。）
-（根目录里有个初始prompt.txt，这个是没有用的，是我一开始想要做agent的雏形，直接发给网页上agent版的ai就能用。实际上还有个更早的雏形是openclaw的一个skill，但是都非常简陋，很难达到预期的效果，我会继续督促ai努力干活自我管理的。）
+```bash
+pip install -r requirements.txt
+```
+
+3. Create a local environment file:
+
+```bash
+cp .env.example .env
+```
+
+4. Configure your model provider and API key in `.env`:
+
+Minimal example:
+
+```env
+LLM_PROVIDER=siliconflow
+MODEL_NAME=deepseek-ai/DeepSeek-V3
+SILICONFLOW_API_KEY=your_api_key_here
+```
+
+You can also override model/provider settings per agent role, for example:
+
+```env
+ROUTER_LLM_PROVIDER=glm
+ROUTER_MODEL_NAME=glm-4-flash
+
+INTERACTION_LLM_PROVIDER=siliconflow
+INTERACTION_MODEL_NAME=deepseek-ai/DeepSeek-V3
+```
+
+5. Start the CLI:
+
+```bash
+python3 main.py
+```
+
+6. Begin chatting with the agent in the terminal.
+
+## Design Principles
+
+- Prompts are externalized instead of hardcoded into a single giant string
+- Agents should access files through explicit tools or dedicated managers
+- Long-term memory, profile data, and knowledge should be separated by responsibility
+- Routing and orchestration should be implemented in code, not only implied in prompts
+- The system should remain configurable so different roles can use different models
+
+## Roadmap
+
+- stabilize the first multi-agent runtime loop
+- improve the router and task protocol
+- add real web search support
+- expand local knowledge management
+- support richer memory/profile update rules
+- add initialization and setup guidance for new users
+- introduce stronger observability and testing
+
+## License
+
+MIT

@@ -4,8 +4,8 @@ from openai import OpenAI
 from llm.base import BaseLLM
 
 class SiliconFlowAdapter(BaseLLM):
-    def __init__(self):
-        api_key = os.getenv("SILICONFLOW_API_KEY")
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        api_key = api_key or os.getenv("SILICONFLOW_API_KEY")
         if not api_key:
             raise ValueError("请在环境变量中设置 SILICONFLOW_API_KEY")
             
@@ -13,8 +13,7 @@ class SiliconFlowAdapter(BaseLLM):
             api_key=api_key, 
             base_url="https://api.siliconflow.cn/v1"  # 硅基流动的专属接口地址
         )
-        # 这里选择 DeepSeek-V3，性价比极高，工具调用能力也很强
-        self.model = "deepseek-ai/DeepSeek-V3"
+        self.model = model or os.getenv("SILICONFLOW_MODEL_NAME") or "deepseek-ai/DeepSeek-V3"
 
     def chat(self, messages, tools=None):
         kwargs = {"model": self.model, "messages": messages}
@@ -32,7 +31,6 @@ class SiliconFlowAdapter(BaseLLM):
                 for tc in msg.tool_calls
             ]
         return result
-        pass
 
     def chat_stream(self, messages, tools=None):
         kwargs = {"model": self.model, "messages": messages, "stream": True}

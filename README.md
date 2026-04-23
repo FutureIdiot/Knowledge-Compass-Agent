@@ -72,10 +72,35 @@ Many learning assistants are good at conversation but weak at continuity and str
 ├── memory/        # schemas and long-term state artifacts
 ├── prompts/       # system and planning prompts
 ├── tools/         # tool definitions
-├── data/          # runtime data such as worklogs
-├── runtime/       # runtime cache / logs
+├── data/          # runtime data such as SQLite / Chroma storage
+├── runtime/       # session buffer and transient runtime files
 └── main.py        # CLI entrypoint
 ```
+
+## Runtime Storage
+
+The repository keeps `data/` and `runtime/` lightweight on purpose. In git they only contain placeholder files such as `.gitkeep`, while real runtime state is created lazily when the agent runs.
+
+Typical runtime outputs:
+
+- `data/memory.db`: SQLite-backed long-term memory store
+- `data/chroma/`: Chroma persistence for chunk-level vector retrieval
+- `runtime/session_<session_id>.json`: short-lived session buffer files
+
+The memory subsystem is split by responsibility:
+
+- `memory_nodes`: full archived content plus compact summaries and metadata
+- `memory_chunks`: chunk-level content and embeddings for retrieval
+- `memory_edges`: graph links between related memory nodes
+- session buffer: temporary per-session staging area before archiving
+
+Retrieval is also staged:
+
+- small chunk collections go directly to Chroma
+- larger collections first apply a `LIKE` coarse filter, then run Chroma retrieval on the filtered candidate scope
+- if embedding generation or Chroma retrieval fails, the system automatically falls back to `LIKE`-based coarse retrieval
+
+This is why it is normal to see only placeholder files in `data/` and `runtime/` until the memory pipeline has actually been exercised.
 
 ## Quick Start
 

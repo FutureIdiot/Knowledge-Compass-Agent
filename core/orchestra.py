@@ -28,9 +28,7 @@ class MultiAgentOrchestrator:
         plan = self.router.plan(
             user_input=user_input,
             history=history,
-            memory_snapshot=shared_context["memory_snapshot"],
-            profile_snapshot=shared_context["profile_snapshot"],
-            knowledge_snapshot=shared_context["knowledge_snapshot"],
+            runtime_state=shared_context["runtime_state"],
         )
 
         task_results = self._execute_plan(plan.tasks, shared_context, user_input)
@@ -41,23 +39,16 @@ class MultiAgentOrchestrator:
             yield chunk
 
     def _bootstrap_context(self, history: list) -> dict:
-        memory_result = self.agents[AgentRole.MEMORY_MANAGER].run(
-            TaskSpec(id="bootstrap-memory", owner=AgentRole.MEMORY_MANAGER, goal="bootstrap_memory"),
-            {"history": history},
-        )
-        profile_result = self.agents[AgentRole.PROFILE_MANAGER].run(
-            TaskSpec(id="bootstrap-profile", owner=AgentRole.PROFILE_MANAGER, goal="bootstrap_profile"),
-            {"history": history},
-        )
-        knowledge_result = self.agents[AgentRole.KNOWLEDGE_MANAGER].run(
-            TaskSpec(id="bootstrap-knowledge", owner=AgentRole.KNOWLEDGE_MANAGER, goal="bootstrap_knowledge"),
-            {"history": history},
-        )
         return {
             "history": history,
-            "memory_snapshot": memory_result.data.get("memory_snapshot", ""),
-            "profile_snapshot": profile_result.data.get("profile_snapshot", ""),
-            "knowledge_snapshot": knowledge_result.data.get("knowledge_snapshot", ""),
+            "memory_snapshot": "",
+            "profile_snapshot": "",
+            "knowledge_snapshot": "",
+            "runtime_state": {
+                "has_memory": self.agents[AgentRole.MEMORY_MANAGER].resource_exists(),
+                "has_profile": self.agents[AgentRole.PROFILE_MANAGER].resource_exists(),
+                "knowledge_file_count": self.agents[AgentRole.KNOWLEDGE_MANAGER].resource_count(),
+            },
         }
 
     def _execute_plan(self, tasks: list[TaskSpec], shared_context: dict, user_input: str) -> dict[str, TaskResult]:

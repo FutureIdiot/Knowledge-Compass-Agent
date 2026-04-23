@@ -42,13 +42,15 @@ Implemented:
 - basic tool-based state persistence
 - early multi-agent orchestration skeleton
 - role-oriented task routing
+- router-led task planning instead of unconditional bootstrap loading
+- relevance-filtered local knowledge retrieval
+- DuckDuckGo-backed web search integration
 
 In progress or planned:
 
 - stronger memory management
 - dedicated user profile management
 - local knowledge retrieval
-- web search integration
 - better multi-agent execution and coordination
 - guided initialization and configuration flow
 
@@ -111,6 +113,13 @@ INTERACTION_LLM_PROVIDER=siliconflow
 INTERACTION_MODEL_NAME=deepseek-ai/DeepSeek-V3
 ```
 
+Optional web search settings:
+
+```env
+WEB_SEARCH_PROVIDER=duckduckgo
+WEB_SEARCH_MAX_RESULTS=5
+```
+
 5. Start the CLI:
 
 ```bash
@@ -131,7 +140,6 @@ python3 main.py
 
 - stabilize the first multi-agent runtime loop
 - improve the router and task protocol
-- add real web search support
 - expand local knowledge management
 - support richer memory/profile update rules
 - add initialization and setup guidance for new users

@@ -309,8 +309,8 @@ class WebSearchAgent(BaseSubAgent):
         return results
 
 
-class InteractionAgent(BaseSubAgent):
-    role = AgentRole.INTERACTION
+class ResponderAgent(BaseSubAgent):
+    role = AgentRole.RESPONDER
 
     def stream_answer(self, task: TaskSpec, shared_context: dict):
         messages = self._build_messages(task, shared_context)
@@ -330,13 +330,15 @@ class InteractionAgent(BaseSubAgent):
 
     def _build_messages(self, task: TaskSpec, shared_context: dict) -> list[dict]:
         system_prompt = (
-            "你是 interaction agent，负责对用户输出最终答案。"
+            "你是 responder agent，负责对用户输出最终答案。"
             "请优先利用上游任务结果，回答要清楚、具体、自然。"
             "如果上游有失败或未实现的能力，要诚实说明，不要假装已经联网搜索。"
         )
         user_payload = {
             "user_input": task.payload.get("user_input", ""),
             "history_tail": shared_context.get("history", [])[-6:],
+            "controller_decision": shared_context.get("controller_decision", {}),
+            "task_board": shared_context.get("task_board", []),
             "memory_snapshot": shared_context.get("memory_snapshot", ""),
             "profile_snapshot": shared_context.get("profile_snapshot", ""),
             "knowledge_snapshot": shared_context.get("knowledge_snapshot", ""),

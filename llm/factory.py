@@ -5,12 +5,12 @@ from llm.siliconflow import SiliconFlowAdapter
 
 
 ROLE_ENV_PREFIXES = {
-    "router": "ROUTER",
+    "controller": "CONTROLLER",
     "memory_manager": "MEMORY_MANAGER",
     "profile_manager": "PROFILE_MANAGER",
     "knowledge_manager": "KNOWLEDGE_MANAGER",
     "web_searcher": "WEB_SEARCHER",
-    "interaction": "INTERACTION",
+    "responder": "RESPONDER",
 }
 
 
@@ -27,6 +27,15 @@ def get_role_llm(role_name: str):
 
 def _get_role_env(role_name: str, key: str) -> str | None:
     prefix = ROLE_ENV_PREFIXES.get(role_name)
-    if not prefix:
-        return None
-    return os.getenv(f"{prefix}_{key}")
+    legacy_prefixes = {
+        "controller": "ROUTER",
+        "responder": "INTERACTION",
+    }
+    if prefix:
+        value = os.getenv(f"{prefix}_{key}")
+        if value:
+            return value
+    legacy_prefix = legacy_prefixes.get(role_name)
+    if legacy_prefix:
+        return os.getenv(f"{legacy_prefix}_{key}")
+    return None

@@ -5,18 +5,18 @@ from dotenv import load_dotenv # 需要 pip install python-dotenv
 # 1. 启动时加载 .env 文件
 load_dotenv()
 
-from core.orchestra import MultiAgentOrchestrator
+from core.controller import LearningController
 
 
 # ---------- 2. Main ----------
 def main():
     try:
-        orchestrator = MultiAgentOrchestrator()
+        controller = LearningController()
     except ValueError as e:
         print(f"初始化失败: {e}")
         sys.exit(1)
     
-    print("=== 多 Agent 学习路径导航系统启动 ===")
+    print("=== 多 Agent 学习路径 Controller 启动 ===")
     history = []
     
     while True:
@@ -27,7 +27,7 @@ def main():
         print("\n导航员: ", end="", flush=True)
         
         full_response = ""
-        for text_chunk in orchestrator.run_stream(user_input, history):
+        for text_chunk in controller.run_stream(user_input, history):
             print(text_chunk, end="", flush=True)
             full_response += text_chunk
             

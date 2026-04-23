@@ -13,18 +13,18 @@ The goal is to help a user:
 - preserve useful long-term context such as progress, preferences, and plans
 - gradually evolve from a single-agent workflow into a multi-agent architecture
 
-The project emphasizes controllability over pure prompt magic by separating responsibilities across planning, memory, knowledge, tools, and model routing.
+The project emphasizes controllability over pure prompt magic by separating responsibilities across semantic judgment, task execution, memory, knowledge, tools, and response generation.
 
 ## Core Idea
 
 The system is designed around a layered architecture:
 
-`Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Router + Orchestrator`
+`Agent Kernel = Policy + Memory + Knowledge + Tools + LLM Controller + SubAgents + Responder`
 
 Current and planned layers:
 
 - Interface Layer: CLI today, API later
-- Orchestrator Layer: task routing and multi-agent coordination
+- Controller Layer: semantic classification plus code-driven task advancement
 - Agent Layer: agent loop and role execution
 - Policy / Planning Layer: decision rules and next-step planning
 - Memory / Knowledge / Skills Layer: user state, references, reusable capabilities
@@ -40,9 +40,8 @@ Implemented:
 - single-session CLI interaction
 - LLM adapter abstraction
 - basic tool-based state persistence
-- early multi-agent orchestration skeleton
-- role-oriented task routing
-- router-led task planning instead of unconditional bootstrap loading
+- unified controller-led task execution
+- code-driven task advancement with status tracking and retries
 - relevance-filtered local knowledge retrieval
 - DuckDuckGo-backed web search integration
 
@@ -58,7 +57,7 @@ In progress or planned:
 
 Many learning assistants are good at conversation but weak at continuity and structure. This project explores a different direction:
 
-- separate routing, memory, profile, knowledge, and interaction concerns
+- separate controller, memory, profile, knowledge, web, and responder concerns
 - make behavior easier to inspect and evolve
 - keep the system flexible enough to mix different models for different roles
 - move important control logic from prompt-only behavior into code
@@ -67,7 +66,7 @@ Many learning assistants are good at conversation but weak at continuity and str
 
 ```text
 .
-├── core/          # agent runtime, router, orchestration
+├── core/          # controller runtime and subagent orchestration
 ├── knowledge/     # local knowledge and retrieval-related modules
 ├── llm/           # model adapters and selection logic
 ├── memory/        # schemas and long-term state artifacts
@@ -106,11 +105,11 @@ SILICONFLOW_API_KEY=your_api_key_here
 You can also override model/provider settings per agent role, for example:
 
 ```env
-ROUTER_LLM_PROVIDER=glm
-ROUTER_MODEL_NAME=glm-4-flash
+CONTROLLER_LLM_PROVIDER=glm
+CONTROLLER_MODEL_NAME=glm-4-flash
 
-INTERACTION_LLM_PROVIDER=siliconflow
-INTERACTION_MODEL_NAME=deepseek-ai/DeepSeek-V3
+RESPONDER_LLM_PROVIDER=siliconflow
+RESPONDER_MODEL_NAME=deepseek-ai/DeepSeek-V3
 ```
 
 Optional web search settings:
@@ -133,13 +132,13 @@ python3 main.py
 - Prompts are externalized instead of hardcoded into a single giant string
 - Agents should access files through explicit tools or dedicated managers
 - Long-term memory, profile data, and knowledge should be separated by responsibility
-- Routing and orchestration should be implemented in code, not only implied in prompts
+- Task advancement should be implemented in code, not delegated to prompts
 - The system should remain configurable so different roles can use different models
 
 ## Roadmap
 
 - stabilize the first multi-agent runtime loop
-- improve the router and task protocol
+- improve the controller decision protocol
 - expand local knowledge management
 - support richer memory/profile update rules
 - add initialization and setup guidance for new users

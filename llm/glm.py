@@ -60,3 +60,6 @@ class GLMAdapter(BaseLLM):
 
         if tool_calls_buffer:
             yield {"type": "tool_calls", "tool_calls": list(tool_calls_buffer.values())}
+
+    def embed(self, texts, model=None):
+        raise NotImplementedError("GLMAdapter 暂未实现 embedding，请改用 SiliconFlow embedding provider。")

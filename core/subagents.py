@@ -1,11 +1,26 @@
 import json
 import os
 import re
+import uuid
 from pathlib import Path
 from urllib import error, parse, request
 
 from llm.base import BaseLLM
+from llm.factory import get_embedding_llm
+from memory.archiver import SessionArchiver
 from memory.schemas import AgentRole, TaskResult, TaskSpec, TaskStatus
+from skills.memory_skills import rank_nodes_for_retrieval, should_archive
+from tools.memory_store import (
+    get_chunk_count,
+    get_retrieval_threshold,
+    memory_has_nodes,
+    query_edges_by_node_ids,
+    query_nodes_by_ids,
+    query_nodes_by_keywords,
+    query_similar_chunks,
+    update_node_access,
+)
+from tools.session_store import get_unprocessed_buffer, insert_session_buffer
 
 
 class BaseSubAgent:
@@ -35,34 +50,43 @@ class BaseSubAgent:
 
 class MemoryManagerAgent(BaseSubAgent):
     role = AgentRole.MEMORY_MANAGER
-    memory_path = Path("data/worklog.md")
+    memory_snapshot_limit = 800
+
+    def __init__(self, llm: BaseLLM):
+        super().__init__(llm)
+        self.archiver = SessionArchiver()
+        self.embedder = get_embedding_llm()
+        memory_has_nodes()
 
     def run(self, task: TaskSpec, shared_context: dict) -> TaskResult:
-        existing = self._read_text(self.memory_path, "未找到 worklog，用户可能是第一次使用。")
         user_input = task.payload.get("user_input", "")
         action = task.payload.get("action", "read")
         should_read = action in {"read", "read_write"}
         should_update = action in {"write", "read_write"}
-        note = ""
-        if should_update:
-            note = self._draft_note(
-                system_prompt=(
-                    "你是 memory manager。请把用户输入压缩成适合长期保留的 Markdown 记录。"
-                    "只保留状态变化、学习进度、下一步计划，不要闲聊。"
-                ),
-                user_input=user_input,
-                existing=existing,
-            )
-            self._write_text(self.memory_path, note)
+        session_id = str(shared_context.get("session_id") or uuid.uuid4())
+        shared_context["session_id"] = session_id
 
-        latest_memory = self._read_text(self.memory_path, existing)
-        memory_snapshot = self._extract_relevant_memory(user_input, latest_memory) if should_read else ""
+        if should_update:
+            insert_session_buffer(session_id, user_input)
+
+        archive_result = {"archived_node_id": None, "edge_count": 0}
+        if should_update and should_archive(session_id):
+            archive_result = self.archiver.archive(session_id, self.llm, self.embedder)
+        retrieval_mode = ""
+        if should_read:
+            memory_snapshot, retrieval_mode = self._build_memory_snapshot(session_id, user_input)
+        else:
+            memory_snapshot = ""
 
         summary = "已检查长期记忆。"
         if should_update:
-            summary += " 已更新 data/worklog.md。"
+            summary += " 已写入 session buffer。"
         if should_read:
             summary += " 已提取当前问题相关的记忆上下文。"
+            if retrieval_mode:
+                summary += f" 检索模式: {retrieval_mode}。"
+        if archive_result.get("archived_node_id"):
+            summary += " 已触发归档。"
         if not should_update and not should_read:
             summary += " 本轮无需读取或写入。"
 
@@ -71,41 +95,141 @@ class MemoryManagerAgent(BaseSubAgent):
             owner=self.role,
             status=TaskStatus.COMPLETED,
             summary=summary,
-            data={"memory_snapshot": memory_snapshot, "updated": should_update, "action": action},
+            data={
+                "memory_snapshot": memory_snapshot,
+                "updated": should_update,
+                "action": action,
+                "session_id": session_id,
+                "archive_result": archive_result,
+                "retrieval_mode": retrieval_mode,
+            },
         )
 
     def resource_exists(self) -> bool:
-        return self.memory_path.exists()
+        memory_db_path = Path("data/memory.db")
+        return memory_db_path.exists() and memory_has_nodes()
 
-    def _draft_note(self, system_prompt: str, user_input: str, existing: str) -> str:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {"existing_memory": existing[:3000], "new_input": user_input},
-                    ensure_ascii=False,
+    def _build_memory_snapshot(self, session_id: str, user_input: str) -> tuple[str, str]:
+        buffer_items = get_unprocessed_buffer(session_id)
+        recent_buffer = buffer_items[-5:]
+
+        ranked_nodes, retrieval_mode = self._retrieve_ranked_nodes(user_input)
+        ranked_nodes = ranked_nodes[:3]
+
+        for node in ranked_nodes:
+            if node.get("id"):
+                update_node_access(node["id"])
+
+        sections = []
+        if recent_buffer:
+            sections.append(
+                "## Session Buffer\n"
+                + "\n".join(
+                    f"- {self._compact_text(item.get('content', ''), 120)}"
+                    for item in recent_buffer
+                    if item.get("content")
+                )
+            )
+        if ranked_nodes:
+            sections.append(
+                "## Long-term Memory\n"
+                + "\n".join(
+                    f"- [{node.get('layer', 'episodic')}] "
+                    f"{self._compact_text(node.get('summary') or node.get('content', ''), 200)}"
+                    for node in ranked_nodes
+                )
+            )
+
+        if not sections:
+            return "暂无可用记忆。", retrieval_mode
+        return self._truncate_memory_snapshot("\n\n".join(sections)), retrieval_mode
+
+    def _retrieve_ranked_nodes(self, user_input: str) -> tuple[list[dict], str]:
+        query_embeddings = self.embedder.embed([user_input])
+        query_embedding = query_embeddings[0] if query_embeddings else []
+        coarse_result = self._coarse_filter(user_input)
+
+        if query_embedding and coarse_result["mode"] in {"direct_chroma", "like_prefilter"}:
+            try:
+                chunk_candidates = query_similar_chunks(
+                    query_embedding,
+                    top_k=8,
+                    allowed_node_ids=coarse_result["node_ids"] or None,
+                )
+                retrieval_mode = coarse_result["mode"]
+            except Exception:
+                chunk_candidates = []
+                retrieval_mode = "fallback_like"
+        else:
+            chunk_candidates = []
+            retrieval_mode = "fallback_like"
+
+        direct_node_ids: list[str] = []
+        similarity_by_node_id: dict[str, float] = {}
+        for chunk in chunk_candidates:
+            node_id = str(chunk.get("node_id", ""))
+            if not node_id:
+                continue
+            similarity_by_node_id[node_id] = max(
+                similarity_by_node_id.get(node_id, 0.0),
+                float(chunk.get("similarity", 0.0)),
+            )
+            if node_id not in direct_node_ids:
+                direct_node_ids.append(node_id)
+
+        if not direct_node_ids:
+            keyword_nodes = query_nodes_by_ids(coarse_result["node_ids"]) if coarse_result["node_ids"] else query_nodes_by_keywords(user_input, limit=8)
+            return (
+                rank_nodes_for_retrieval(
+                    keyword_nodes,
+                    similarity_by_node_id={str(node.get("id", "")): 0.3 for node in keyword_nodes},
+                    neighbor_node_ids=set(),
                 ),
-            },
-        ]
-        content = self.llm.chat(messages).get("content", "").strip()
-        return content or existing
+                "fallback_like",
+            )
 
-    def _extract_relevant_memory(self, user_input: str, text: str) -> str:
-        lines = [line for line in text.splitlines() if line.strip()]
-        if not lines:
-            return text[:800]
+        neighbor_node_ids: set[str] = set()
+        for edge in query_edges_by_node_ids(direct_node_ids):
+            source_id = edge.get("source_id")
+            target_id = edge.get("target_id")
+            if source_id in direct_node_ids and target_id:
+                neighbor_node_ids.add(str(target_id))
+            if target_id in direct_node_ids and source_id:
+                neighbor_node_ids.add(str(source_id))
 
-        query_terms = _extract_query_terms(user_input)
-        selected = []
-        for line in lines:
-            lowered = line.lower()
-            if line.startswith("#") or any(term in lowered for term in query_terms):
-                selected.append(line)
+        all_node_ids = direct_node_ids + [node_id for node_id in neighbor_node_ids if node_id not in direct_node_ids]
+        return (
+            rank_nodes_for_retrieval(
+                query_nodes_by_ids(all_node_ids),
+                similarity_by_node_id=similarity_by_node_id,
+                neighbor_node_ids=neighbor_node_ids,
+            ),
+            retrieval_mode,
+        )
 
-        if not selected:
-            selected = lines[:8]
-        return "\n".join(selected[:12])
+    def _coarse_filter(self, user_input: str) -> dict[str, object]:
+        chunk_count = get_chunk_count()
+        threshold = get_retrieval_threshold()
+        if chunk_count < threshold:
+            return {"mode": "direct_chroma", "node_ids": []}
+
+        keyword_nodes = query_nodes_by_keywords(user_input, limit=20)
+        return {
+            "mode": "like_prefilter",
+            "node_ids": [str(node.get("id", "")) for node in keyword_nodes if node.get("id")],
+        }
+
+    def _truncate_memory_snapshot(self, snapshot: str) -> str:
+        if len(snapshot) <= self.memory_snapshot_limit:
+            return snapshot
+        truncated = snapshot[: self.memory_snapshot_limit - 3].rstrip()
+        return f"{truncated}..."
+
+    def _compact_text(self, text: str, max_chars: int) -> str:
+        compact = " ".join(text.split())
+        if len(compact) <= max_chars:
+            return compact
+        return f"{compact[: max_chars - 3].rstrip()}..."
 
 
 class ProfileManagerAgent(BaseSubAgent):

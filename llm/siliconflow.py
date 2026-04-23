@@ -1,5 +1,6 @@
 # llm/siliconflow.py
 import os
+import time
 from openai import OpenAI
 from llm.base import BaseLLM
 
@@ -63,3 +64,34 @@ class SiliconFlowAdapter(BaseLLM):
         # 3. 流结束后，如果攒了工具调用，一次性丢给 Agent 处理
         if tool_calls_buffer:
             yield {"type": "tool_calls", "tool_calls": list(tool_calls_buffer.values())}
+
+    def embed(self, texts, model=None):
+        if not texts:
+            return []
+
+        normalized_inputs = [(index, text) for index, text in enumerate(texts) if text and text.strip()]
+        if not normalized_inputs:
+            return [[] for _ in texts]
+
+        retries = max(int(os.getenv("EMBEDDING_MAX_RETRIES", "2")), 0)
+        retry_delay = max(float(os.getenv("EMBEDDING_RETRY_DELAY_SECONDS", "0.8")), 0.0)
+        last_error = None
+
+        for attempt in range(retries + 1):
+            try:
+                response = self.client.embeddings.create(
+                    model=model or os.getenv("EMBEDDING_MODEL_NAME") or "BAAI/bge-m3",
+                    input=[text for _, text in normalized_inputs],
+                    encoding_format="float",
+                )
+                vectors = [[] for _ in texts]
+                for (original_index, _), item in zip(normalized_inputs, response.data):
+                    vectors[original_index] = item.embedding
+                return vectors
+            except Exception as exc:
+                last_error = exc
+                if attempt >= retries:
+                    break
+                time.sleep(retry_delay)
+
+        return [[] for _ in texts]

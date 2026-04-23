@@ -12,3 +12,8 @@ class BaseLLM(ABC):
     def chat_stream(self, messages: List[Dict], tools: list = None) -> Generator[Dict, None, None]:
         """流式调用：每次 yield 出一块数据"""
         pass
+
+    @abstractmethod
+    def embed(self, texts: List[str], model: str | None = None) -> List[List[float]]:
+        """返回文本列表的 embedding 向量"""
+        pass

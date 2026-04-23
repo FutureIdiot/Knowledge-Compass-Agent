@@ -25,6 +25,17 @@ def get_role_llm(role_name: str):
     raise ValueError(f"不支持的 LLM 提供商: {provider}")
 
 
+def get_embedding_llm():
+    provider = os.getenv("EMBEDDING_LLM_PROVIDER", "siliconflow")
+    model_name = os.getenv("EMBEDDING_MODEL_NAME") or "BAAI/bge-m3"
+
+    if provider == "siliconflow":
+        return SiliconFlowAdapter(model=model_name)
+    if provider == "glm":
+        return GLMAdapter(model=model_name)
+    raise ValueError(f"不支持的 embedding 提供商: {provider}")
+
+
 def _get_role_env(role_name: str, key: str) -> str | None:
     prefix = ROLE_ENV_PREFIXES.get(role_name)
     legacy_prefixes = {

@@ -1,4 +1,6 @@
-# core/agent.py
+# [DEPRECATED] core/agent.py
+# 旧版单 Agent 入口，依赖 prompts/system.txt 与 prompts/planner.txt。
+# 当前运行时已迁移到 `core/controller.py`，这里只保留作历史参考，不参与主流程。
 import json
 from llm.base import BaseLLM
 

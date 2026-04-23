@@ -23,6 +23,15 @@ class BaseSubAgent:
     def resource_count(self) -> int:
         return 0
 
+    def _read_text(self, path: Path, default: str) -> str:
+        if not path.exists():
+            return default
+        return path.read_text(encoding="utf-8")
+
+    def _write_text(self, path: Path, content: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
 
 class MemoryManagerAgent(BaseSubAgent):
     role = AgentRole.MEMORY_MANAGER
@@ -81,15 +90,6 @@ class MemoryManagerAgent(BaseSubAgent):
         ]
         content = self.llm.chat(messages).get("content", "").strip()
         return content or existing
-
-    def _read_text(self, path: Path, default: str) -> str:
-        if not path.exists():
-            return default
-        return path.read_text(encoding="utf-8")
-
-    def _write_text(self, path: Path, content: str) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
 
     def _extract_relevant_memory(self, user_input: str, text: str) -> str:
         lines = [line for line in text.splitlines() if line.strip()]
@@ -160,15 +160,6 @@ class ProfileManagerAgent(BaseSubAgent):
         ]
         content = self.llm.chat(messages).get("content", "").strip()
         return content or existing
-
-    def _read_text(self, path: Path, default: str) -> str:
-        if not path.exists():
-            return default
-        return path.read_text(encoding="utf-8")
-
-    def _write_text(self, path: Path, content: str) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
 
     def _extract_relevant_profile(self, user_input: str, text: str) -> str:
         sections = [block for block in text.split("\n## ") if block.strip()]
@@ -343,7 +334,7 @@ class ResponderAgent(BaseSubAgent):
             "profile_snapshot": shared_context.get("profile_snapshot", ""),
             "knowledge_snapshot": shared_context.get("knowledge_snapshot", ""),
             "task_results": {
-                task_id: result.model_dump()
+                task_id: result.summary
                 for task_id, result in shared_context.get("task_results", {}).items()
             },
         }

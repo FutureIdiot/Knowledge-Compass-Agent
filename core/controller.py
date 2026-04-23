@@ -64,7 +64,7 @@ class LearningController:
         shared_context["task_board"] = self._serialize_task_board(tasks, task_results)
         shared_context["controller_decision"] = decision.model_dump()
 
-        responder_task = self._build_responder_task(user_input=user_input, tasks=tasks)
+        responder_task = self._build_responder_task(user_input=user_input, tasks=tasks, task_results=task_results)
         for chunk in self.responder.stream_answer(responder_task, shared_context):
             yield chunk
 
@@ -169,7 +169,6 @@ class LearningController:
                 )
             )
 
-        dependencies = [task.id for task in tasks]
         tasks.append(
             TaskSpec(
                 id="responder",
@@ -177,9 +176,7 @@ class LearningController:
                 goal="compose_final_answer",
                 instructions="整合所有上游结果，生成最终回答。",
                 payload={"user_input": user_input},
-                depends_on=dependencies,
                 required_payload_fields=["user_input"],
-                run_if={"dependencies_terminal": True},
             )
         )
         return tasks
@@ -256,9 +253,13 @@ class LearningController:
 
         return results
 
-    def _build_responder_task(self, user_input: str, tasks: list[TaskSpec]) -> TaskSpec:
+    def _build_responder_task(self, user_input: str, tasks: list[TaskSpec], task_results: dict[str, TaskResult]) -> TaskSpec:
         responder_task = next(task for task in tasks if task.owner == AgentRole.RESPONDER)
         responder_task.payload.setdefault("user_input", user_input)
+        worker_ids = [task.id for task in tasks if task.owner != AgentRole.RESPONDER]
+        unresolved = [task_id for task_id in worker_ids if task_id not in task_results]
+        if unresolved:
+            raise RuntimeError(f"responder 启动前仍有子任务未返回: {', '.join(unresolved)}")
         return responder_task
 
     def _update_shared_context(self, shared_context: dict, result: TaskResult) -> None:
@@ -276,12 +277,7 @@ class LearningController:
         if not task.run_if:
             return True
 
-        if task.run_if.get("dependencies_terminal"):
-            return all(dep in results for dep in task.depends_on)
-
         for key, rule in task.run_if.items():
-            if key == "dependencies_terminal":
-                continue
             value = self._resolve_path(shared_context, key)
             if isinstance(rule, dict):
                 if "gt" in rule and not (isinstance(value, (int, float)) and value > rule["gt"]):
@@ -375,7 +371,9 @@ class LearningController:
             return "read_write"
         if should_write:
             return "write"
-        return "read"
+        if should_read:
+            return "read"
+        raise ValueError("unreachable: both flags are False")
 
     def _resolve_path(self, data: dict, path: str):
         current = data

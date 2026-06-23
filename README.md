@@ -1,4 +1,4 @@
-# Knowledge Compass Agent
+# Compass
 
 Local-first learning-path navigation with an evolving multi-agent architecture.
 

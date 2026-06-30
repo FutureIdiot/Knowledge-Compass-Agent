@@ -3,8 +3,7 @@
 Local-first learning-path navigation with an evolving multi-agent architecture.
 
 ## Overview
-
-Compass Agent is an experimental project that explores how a learning assistant can be turned into a more structured, controllable agent system.
+Compass is an experimental project that explores how a learning assistant can be turned into a more structured, controllable agent system.
 
 The goal is to help a user:
 
